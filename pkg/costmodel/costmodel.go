@@ -130,16 +130,16 @@ const (
 					count_over_time(kube_pod_container_resource_requests_memory_bytes{container!="",container!="POD", node!=""}[%s] %s) 
 					*  
 					avg_over_time(kube_pod_container_resource_requests_memory_bytes{container!="",container!="POD", node!=""}[%s] %s)
-				) by (namespace,container,pod,node,cluster_id) , "container_name","$1","container","(.+)"
-			), "pod_name","$1","pod","(.+)"
+				) by (namespace,container,pod,node,cluster_id) , "container","$1","container","(.+)"
+			), "pod","$1","pod","(.+)"
 		)
-	) by (namespace,container_name,pod_name,node,cluster_id)`
+	) by (namespace,container,pod,node,cluster_id)`
 	queryRAMUsageStr = `sort_desc(
 		avg(
-			label_replace(count_over_time(container_memory_working_set_bytes{container_name!="",container_name!="POD", instance!=""}[%s] %s), "node", "$1", "instance","(.+)") 
+			label_replace(count_over_time(container_memory_working_set_bytes{container!="",container!="POD", instance!=""}[%s] %s), "node", "$1", "instance","(.+)") 
 			* 
-			label_replace(avg_over_time(container_memory_working_set_bytes{container_name!="",container_name!="POD", instance!=""}[%s] %s), "node", "$1", "instance","(.+)") 
-		) by (namespace,container_name,pod_name,node,cluster_id)
+			label_replace(avg_over_time(container_memory_working_set_bytes{container!="",container!="POD", instance!=""}[%s] %s), "node", "$1", "instance","(.+)") 
+		) by (namespace,container,pod,node,cluster_id)
 	)`
 	queryCPURequestsStr = `avg(
 		label_replace(
@@ -148,17 +148,17 @@ const (
 					count_over_time(kube_pod_container_resource_requests_cpu_cores{container!="",container!="POD", node!=""}[%s] %s) 
 					*  
 					avg_over_time(kube_pod_container_resource_requests_cpu_cores{container!="",container!="POD", node!=""}[%s] %s)
-				) by (namespace,container,pod,node,cluster_id) , "container_name","$1","container","(.+)"
-			), "pod_name","$1","pod","(.+)"
+				) by (namespace,container,pod,node,cluster_id) , "container","$1","container","(.+)"
+			), "pod","$1","pod","(.+)"
 		) 
-	) by (namespace,container_name,pod_name,node,cluster_id)`
+	) by (namespace,container,pod,node,cluster_id)`
 	queryCPUUsageStr = `avg(
 		label_replace(
 		rate( 
-			container_cpu_usage_seconds_total{container_name!="",container_name!="POD",instance!=""}[%s] %s
+			container_cpu_usage_seconds_total{container!="",container!="POD",instance!=""}[%s] %s
 		) , "node", "$1", "instance", "(.+)"
 		)
-	) by (namespace,container_name,pod_name,node,cluster_id)`
+	) by (namespace,container,pod,node,cluster_id)`
 	queryGPURequestsStr = `avg(
 		label_replace(
 			label_replace(
@@ -167,11 +167,11 @@ const (
 					*  
 					avg_over_time(kube_pod_container_resource_requests{resource="nvidia_com_gpu", container!="",container!="POD", node!=""}[%s] %s)
 					* %f
-				) by (namespace,container,pod,node,cluster_id) , "container_name","$1","container","(.+)"
-			), "pod_name","$1","pod","(.+)"
+				) by (namespace,container,pod,node,cluster_id) , "container","$1","container","(.+)"
+			), "pod","$1","pod","(.+)"
 		) 
-	) by (namespace,container_name,pod_name,node,cluster_id) 
-	* on (pod_name, namespace, cluster_id) group_left(container) label_replace(avg(avg_over_time(kube_pod_status_phase{phase="Running"}[%s] %s)) by (pod,namespace,cluster_id), "pod_name","$1","pod","(.+)")`
+	) by (namespace,container,pod,node,cluster_id) 
+	* on (pod, namespace, cluster_id) group_left(container) label_replace(avg(avg_over_time(kube_pod_status_phase{phase="Running"}[%s] %s)) by (pod,namespace,cluster_id), "pod","$1","pod","(.+)")`
 	queryPVRequestsStr = `avg(avg(kube_persistentvolumeclaim_info) by (persistentvolumeclaim, storageclass, namespace, volumename, cluster_id) 
 	* 
 	on (persistentvolumeclaim, namespace, cluster_id) group_right(storageclass, volumename) 
@@ -186,7 +186,7 @@ const (
 			sum(
 				sum_over_time(container_memory_allocation_bytes{container!="",container!="POD", node!=""}[%s:1m]) / %f 
 			) by (namespace,container,pod,node,cluster_id)
-		, "container_name","$1","container","(.+)"), "pod_name","$1","pod","(.+)")`
+		, "container","$1","container","(.+)"), "pod","$1","pod","(.+)")`
 	// queryCPUAllocationVCPUHours yields the total VCPU-hour CPU allocation over the given
 	// window, aggregated by container.
 	//  [line 3]     sum_over_time(each VCPU*mins in window) / (min/hr kubecost up) = [VCPU*hour] by metric, adjusted for kubecost downtime
@@ -197,7 +197,7 @@ const (
 			sum(
 				sum_over_time(container_cpu_allocation{container!="",container!="POD", node!=""}[%s:1m]) / %f
 			) by (namespace,container,pod,node,cluster_id)
-		, "container_name","$1","container","(.+)"), "pod_name","$1","pod","(.+)")`
+		, "container","$1","container","(.+)"), "pod","$1","pod","(.+)")`
 	// queryPVCAllocationFmt yields the total byte-hour PVC allocation over the given window.
 	//  sum(all VCPU measurements within given window) = [byte*min] by metric
 	//  (") / 60 = [byte*hour] by metric, assuming no missed scrapes
@@ -216,9 +216,9 @@ const (
 	queryPodDaemonsets        = `sum(kube_pod_owner{owner_kind="DaemonSet"}) by (namespace,pod,owner_name,cluster_id)`
 	queryPodJobs              = `sum(kube_pod_owner{owner_kind="Job"}) by (namespace,pod,owner_name,cluster_id)`
 	queryServiceLabels        = `avg_over_time(service_selector_labels[%s])`
-	queryZoneNetworkUsage     = `sum(increase(kubecost_pod_network_egress_bytes_total{internet="false", sameZone="false", sameRegion="true"}[%s] %s)) by (namespace,pod_name,cluster_id) / 1024 / 1024 / 1024`
-	queryRegionNetworkUsage   = `sum(increase(kubecost_pod_network_egress_bytes_total{internet="false", sameZone="false", sameRegion="false"}[%s] %s)) by (namespace,pod_name,cluster_id) / 1024 / 1024 / 1024`
-	queryInternetNetworkUsage = `sum(increase(kubecost_pod_network_egress_bytes_total{internet="true"}[%s] %s)) by (namespace,pod_name,cluster_id) / 1024 / 1024 / 1024`
+	queryZoneNetworkUsage     = `sum(increase(kubecost_pod_network_egress_bytes_total{internet="false", sameZone="false", sameRegion="true"}[%s] %s)) by (namespace,pod,cluster_id) / 1024 / 1024 / 1024`
+	queryRegionNetworkUsage   = `sum(increase(kubecost_pod_network_egress_bytes_total{internet="false", sameZone="false", sameRegion="false"}[%s] %s)) by (namespace,pod,cluster_id) / 1024 / 1024 / 1024`
+	queryInternetNetworkUsage = `sum(increase(kubecost_pod_network_egress_bytes_total{internet="true"}[%s] %s)) by (namespace,pod,cluster_id) / 1024 / 1024 / 1024`
 	normalizationStr          = `max(count_over_time(kube_pod_container_resource_requests_memory_bytes{}[%s] %s))`
 	kubecostUpMinsPerHourStr  = `max(count_over_time(node_cpu_hourly_cost[%s:1m])) / %f`
 )
